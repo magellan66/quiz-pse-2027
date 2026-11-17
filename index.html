@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#123b66">
+  <title>Quiz PSE</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="script.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="#" aria-label="Accueil Quiz PSE">
+      <span class="brand-icon">PSE</span>
+      <span>Quiz <strong>PSE</strong></span>
+    </a>
+    <span id="player-label" class="player-label">Non connecté</span>
+  </header>
+
+  <main class="container">
+    <section id="home-screen" class="card">
+      <p class="eyebrow">Entraîne-toi à ton rythme</p>
+      <h1>Teste tes connaissances</h1>
+      <p class="intro">
+        Réponds aux questions, consulte les sources et améliore ton meilleur score.
+      </p>
+
+      <form id="start-form">
+        <label for="pseudo">Ton pseudo</label>
+        <input
+          id="pseudo"
+          name="pseudo"
+          type="text"
+          maxlength="20"
+          autocomplete="nickname"
+          placeholder="Ex. Pompier42"
+          required
+        >
+
+        <fieldset>
+          <legend>Nombre de questions</legend>
+          <div class="category-options">
+            <label class="category-option">
+              <input type="radio" name="question-count" value="10" checked>
+              <span><strong>10</strong><small>Questions</small></span>
+            </label>
+            <label class="category-option">
+              <input type="radio" name="question-count" value="20">
+              <span><strong>20</strong><small>Questions</small></span>
+            </label>
+            <label class="category-option">
+              <input type="radio" name="question-count" value="100">
+              <span><strong>100</strong><small>Questions</small></span>
+            </label>
+          </div>
+        </fieldset>
+
+        <button class="button button-primary" type="submit">Commencer une partie</button>
+      </form>
+
+      <p id="load-status" class="notice" role="status">
+        Chargement des questions…
+      </p>
+      <p id="load-error" class="error" role="alert" hidden></p>
+    </section>
+
+    <section id="quiz-screen" class="card" hidden>
+      <div class="quiz-topline">
+        <span id="question-counter">Question 1 / 10</span>
+        <span id="timer">00:00.00</span>
+      </div>
+
+      <div class="progress-track" aria-hidden="true">
+        <div id="progress-bar" class="progress-bar"></div>
+      </div>
+
+      <h1 id="question-text" class="question-text"></h1>
+      <div id="answers" class="answers"></div>
+
+      <div id="feedback" class="feedback" aria-live="polite" hidden></div>
+
+      <button id="next-button" class="button button-primary" type="button" hidden>
+        Question suivante
+      </button>
+    </section>
+
+    <section id="result-screen" class="card" hidden>
+      <p class="eyebrow">Partie terminée</p>
+      <h1>Bien joué, <span id="result-pseudo"></span> !</h1>
+      <p id="result-summary" class="result-summary"></p>
+      <p id="best-message" class="notice"></p>
+
+      <div class="result-actions">
+        <button id="replay-button" class="button button-primary" type="button">
+          Rejouer
+        </button>
+        <button id="home-button" class="button button-secondary" type="button">
+          Retour à l’accueil
+        </button>
+      </div>
+    </section>
+
+    <section class="card leaderboard-card">
+      <p class="eyebrow">Classement sur cet appareil</p>
+      <h2>Meilleurs scores</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Pseudo</th>
+              <th>Catégorie</th>
+              <th>Bonnes réponses</th>
+              <th>Score</th>
+            </tr>
+          </thead>
+          <tbody id="leaderboard-body"></tbody>
+        </table>
+      </div>
+      <p id="empty-leaderboard" class="notice">
+        Les scores apparaîtront ici après une partie.
+      </p>
+    </section>
+  </main>
+
+  <footer>
+    Quiz PSE — interface de démonstration
+  </footer>
+</body>
+</html>
