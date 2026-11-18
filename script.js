@@ -4,11 +4,9 @@ const CSV_PATH = "./questions.csv";
 const STORAGE_KEY = "quiz-pse-best-scores-v1";
 
 /*
- * Formule de démonstration :
- * 1000 points moins 10 points par seconde, avec un minimum de 1 point.
- * Une mauvaise réponse vaut 0.
- *
- * À adapter si tu préfères une autre formule.
+ * Formule : 1000 points au départ, moins 10 points par seconde.
+ * Une bonne réponse rapporte au minimum 1 point.
+ * Une mauvaise réponse rapporte 0 point.
  */
 const POINTS_DEPART = 1000;
 const POINTS_PAR_SECONDE = 10;
@@ -43,7 +41,6 @@ let correctAnswers = 0;
 let totalPoints = 0;
 let questionStartedAt = 0;
 let timerInterval = null;
-let lastResult = null;
 
 function parseSemicolonCsv(text) {
   const rows = [];
@@ -66,7 +63,11 @@ function parseSemicolonCsv(text) {
     } else if ((char === "\n" || char === "\r") && !insideQuotes) {
       if (char === "\r" && next === "\n") i += 1;
       row.push(field);
-      if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+
+      if (row.some((cell) => cell.trim() !== "")) {
+        rows.push(row);
+      }
+
       row = [];
       field = "";
     } else {
@@ -75,47 +76,54 @@ function parseSemicolonCsv(text) {
   }
 
   row.push(field);
-  if (row.some((cell) => cell.trim() !== "")) rows.push(row);
+
+  if (row.some((cell) => cell.trim() !== "")) {
+    rows.push(row);
+  }
 
   return rows;
 }
 
-function loadQuestions() {
-  fetch(CSV_PATH)
-    .then((response) => {
-      if (!response.ok) {
-        throw new Error(`Impossible de charger ${CSV_PATH} (${response.status}).`);
-      }
-      return response.text();
-    })
-    .then((text) => {
-      const rows = parseSemicolonCsv(text.replace(/^\uFEFF/, ""));
-      const dataRows = rows.slice(1);
+async function loadQuestions() {
+  const submitButton = startForm.querySelector("button[type='submit']");
 
-      allQuestions = dataRows
-        .filter((row) => row.length >= 6 && row[0].trim() && row[1].trim())
-        .map((row) => ({
-          question: row[0].trim(),
-          correct: row[1].trim(),
-          incorrect: row.slice(2, 5).map((answer) => answer.trim()).filter(Boolean),
-          source: row[5].trim()
-        }))
-        .filter((item) => item.incorrect.length === 3);
+  try {
+    const response = await fetch(CSV_PATH);
 
-      if (allQuestions.length === 0) {
-        throw new Error("Aucune question valide n’a été trouvée dans le CSV.");
-      }
+    if (!response.ok) {
+      throw new Error(`Impossible de charger ${CSV_PATH} (${response.status}).`);
+    }
 
-      loadStatus.textContent = `${allQuestions.length} questions chargées.`;
-      startForm.querySelector("button[type='submit']").disabled = false;
-    })
-    .catch((error) => {
-      loadStatus.hidden = true;
-      loadError.hidden = false;
-      loadError.textContent =
-        `${error.message} Vérifie que questions.csv est dans le même dossier que le site.`;
-      startForm.querySelector("button[type='submit']").disabled = true;
-    });
+    const text = await response.text();
+    const rows = parseSemicolonCsv(text.replace(/^\uFEFF/, ""));
+    const dataRows = rows.slice(1); // Ignore la ligne d'en-tête du CSV.
+
+    allQuestions = dataRows
+      .filter((row) => row.length >= 6 && row[0].trim() && row[1].trim())
+      .map((row) => ({
+        question: row[0].trim(),
+        correct: row[1].trim(), // La bonne réponse est toujours en colonne 2.
+        incorrect: row
+          .slice(2, 5)
+          .map((answer) => answer.trim())
+          .filter(Boolean),
+        source: row[5].trim()
+      }))
+      .filter((item) => item.incorrect.length === 3);
+
+    if (allQuestions.length === 0) {
+      throw new Error("Aucune question valide n’a été trouvée dans le CSV.");
+    }
+
+    loadStatus.textContent = `${allQuestions.length} questions chargées.`;
+    submitButton.disabled = false;
+  } catch (error) {
+    loadStatus.hidden = true;
+    loadError.hidden = false;
+    loadError.textContent =
+      `${error.message} Vérifie que questions.csv est dans le même dossier que le site.`;
+    submitButton.disabled = true;
+  }
 }
 
 function shuffle(items) {
@@ -140,6 +148,7 @@ function formatTime(milliseconds) {
 
 function calculatePoints(milliseconds) {
   const elapsedSeconds = milliseconds / 1000;
+
   return Math.max(
     POINTS_MINIMUM,
     Math.floor(POINTS_DEPART - elapsedSeconds * POINTS_PAR_SECONDE)
@@ -152,7 +161,9 @@ function startTimer() {
   timerDisplay.textContent = "00:00.00";
 
   timerInterval = window.setInterval(() => {
-    timerDisplay.textContent = formatTime(performance.now() - questionStartedAt);
+    timerDisplay.textContent = formatTime(
+      performance.now() - questionStartedAt
+    );
   }, 10);
 }
 
@@ -176,14 +187,19 @@ function showQuestion() {
   const question = currentQuestions[currentQuestionIndex];
   const questionNumber = currentQuestionIndex + 1;
 
-  questionCounter.textContent = `Question ${questionNumber} / ${currentQuestions.length}`;
-  progressBar.style.width = `${(currentQuestionIndex / currentQuestions.length) * 100}%`;
+  questionCounter.textContent =
+    `Question ${questionNumber} / ${currentQuestions.length}`;
+  progressBar.style.width =
+    `${(currentQuestionIndex / currentQuestions.length) * 100}%`;
   questionText.textContent = question.question;
+
   answersElement.replaceChildren();
   feedback.hidden = true;
   feedback.replaceChildren();
   nextButton.hidden = true;
 
+  // La bonne réponse est marquée AVANT le mélange.
+  // Son statut reste donc correct quelle que soit sa position à l'écran.
   const choices = shuffle([
     { text: question.correct, correct: true },
     ...question.incorrect.map((text) => ({ text, correct: false }))
@@ -194,7 +210,11 @@ function showQuestion() {
     button.type = "button";
     button.className = "answer-button";
     button.textContent = choice.text;
-    button.addEventListener("click", () => chooseAnswer(button, choice, question));
+
+    button.addEventListener("click", () => {
+      chooseAnswer(button, choice, question);
+    });
+
     answersElement.append(button);
   });
 
@@ -205,7 +225,9 @@ function chooseAnswer(selectedButton, selectedChoice, question) {
   clearInterval(timerInterval);
 
   const elapsed = performance.now() - questionStartedAt;
-  const gainedPoints = selectedChoice.correct ? calculatePoints(elapsed) : 0;
+  const gainedPoints = selectedChoice.correct
+    ? calculatePoints(elapsed)
+    : 0;
 
   if (selectedChoice.correct) {
     correctAnswers += 1;
@@ -214,6 +236,7 @@ function chooseAnswer(selectedButton, selectedChoice, question) {
 
   [...answersElement.children].forEach((button) => {
     button.disabled = true;
+
     if (button.textContent === question.correct) {
       button.classList.add("correct");
     }
@@ -240,6 +263,7 @@ function chooseAnswer(selectedButton, selectedChoice, question) {
     currentQuestionIndex === currentQuestions.length - 1
       ? "Voir mon résultat"
       : "Question suivante";
+
   nextButton.hidden = false;
 }
 
@@ -254,9 +278,11 @@ function getScores() {
 
 function saveBestScore(result) {
   const scores = getScores();
+
   const existingIndex = scores.findIndex(
     (score) =>
-      score.pseudo.toLocaleLowerCase("fr") === result.pseudo.toLocaleLowerCase("fr") &&
+      score.pseudo.toLocaleLowerCase("fr") ===
+        result.pseudo.toLocaleLowerCase("fr") &&
       score.category === result.category
   );
 
@@ -264,7 +290,10 @@ function saveBestScore(result) {
     existingIndex === -1 || result.points > scores[existingIndex].points;
 
   if (isNewBest) {
-    if (existingIndex !== -1) scores.splice(existingIndex, 1);
+    if (existingIndex !== -1) {
+      scores.splice(existingIndex, 1);
+    }
+
     scores.push(result);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(scores));
   }
@@ -282,6 +311,7 @@ function renderLeaderboard() {
 
   scores.slice(0, 50).forEach((score) => {
     const row = document.createElement("tr");
+
     const values = [
       score.pseudo,
       `${score.category} questions`,
@@ -303,7 +333,7 @@ function finishGame() {
   clearInterval(timerInterval);
   progressBar.style.width = "100%";
 
-  lastResult = {
+  const result = {
     pseudo: currentPseudo,
     category: currentCategory,
     correct: correctAnswers,
@@ -311,10 +341,11 @@ function finishGame() {
     completedAt: new Date().toISOString()
   };
 
-  const isNewBest = saveBestScore(lastResult);
+  const isNewBest = saveBestScore(result);
 
   quizScreen.hidden = true;
   resultScreen.hidden = false;
+
   document.querySelector("#result-pseudo").textContent = currentPseudo;
   document.querySelector("#result-summary").textContent =
     `${correctAnswers} bonne(s) réponse(s) sur ${currentCategory} — ${totalPoints.toLocaleString("fr-FR")} points.`;
@@ -331,14 +362,13 @@ startForm.addEventListener("submit", (event) => {
   if (allQuestions.length === 0) return;
 
   const pseudo = pseudoInput.value.trim().replace(/\s+/g, " ");
-  const questionCount = Number(
-    document.querySelector('input[name="question-count"]:checked').value
+  const selectedCategory = document.querySelector(
+    'input[name="question-count"]:checked'
   );
 
-  if (!pseudo) {
-    pseudoInput.focus();
-    return;
-  }
+  if (!pseudo || !selectedCategory) return;
+
+  const questionCount = Number(selectedCategory.value);
 
   if (allQuestions.length < questionCount) {
     loadError.hidden = false;
